@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartInspect Claims Agent</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="layout">
+    <section class="panel panel-left">
+      <h1>SmartInspect Claims Agent</h1>
+
+      <form id="analyze-form">
+        <label class="field">
+          <span>Photo (optional if you ask a question)</span>
+          <input type="file" id="image-input" accept="image/*">
+        </label>
+
+        <img id="preview" alt="Selected preview" hidden>
+
+        <label class="field">
+          <span>Your question (optional if you upload a photo)</span>
+          <textarea id="query-input" rows="4" placeholder="e.g. Is this covered under my policy?"></textarea>
+        </label>
+
+        <button type="submit" id="submit-btn">Analyze</button>
+        <p id="status"></p>
+      </form>
+    </section>
+
+    <section class="panel panel-right">
+      <div class="card" id="damage-card" hidden>
+        <h2>Damage Detection <span class="pill" id="damage-pill"></span></h2>
+        <p class="summary" id="damage-summary"></p>
+      </div>
+
+      <div class="card" id="ocr-card" hidden>
+        <h2>Extracted Label</h2>
+        <ul id="ocr-detail"></ul>
+      </div>
+
+      <div class="card" id="reasoning-card" hidden>
+        <h2>
+          Agent Reasoning
+          <button type="button" class="toggle-btn" id="reasoning-toggle">Hide</button>
+        </h2>
+        <ol id="reasoning-steps"></ol>
+      </div>
+
+      <div class="card" id="answer-card" hidden>
+        <h2>Answer</h2>
+        <p id="answer-text"></p>
+        <p class="txn-id" id="txn-id"></p>
+
+        <div class="feedback" id="feedback-section" hidden>
+          <span class="feedback-label">Was this helpful?</span>
+          <div class="feedback-buttons">
+            <button type="button" class="feedback-btn" id="feedback-up" data-score="1" aria-label="Good answer">👍</button>
+            <button type="button" class="feedback-btn" id="feedback-down" data-score="0" aria-label="Bad answer">👎</button>
+          </div>
+          <p id="feedback-status"></p>
+        </div>
+      </div>
+
+      <p class="placeholder" id="empty-state">Results will appear here.</p>
+    </section>
+  </main>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>

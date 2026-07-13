@@ -1,0 +1,44 @@
+{
+  "HBUSRJGF4CBFPR9BN": {
+    "make": "Ford",
+    "model": "F-150",
+    "year": 2014,
+    "last_covered": 2025
+  },
+  "3R5UAL4YUKPYGF1GZ": {
+    "make": "Toyota",
+    "model": "Camry",
+    "year": 2017,
+    "last_covered": 2024
+  },
+  "ZTC6H1FV0NECRVFRG": {
+    "make": "Honda",
+    "model": "Civic",
+    "year": 2019,
+    "last_covered": 2026
+  },
+  "1U60L0ZPUELSL61UR": {
+    "make": "Chevrolet",
+    "model": "Silverado",
+    "year": 2012,
+    "last_covered": 2023
+  },
+  "XDRCX2UEPXP826KTJ": {
+    "make": "Nissan",
+    "model": "Altima",
+    "year": 2020,
+    "last_covered": 2025
+  },
+  "ST420RJ98FDHKL4E1": {
+    "make": "Jeep",
+    "model": "Grand Cherokee",
+    "year": 2016,
+    "last_covered": 2024
+  },
+  "16TAHUYHV4L6AT9M9": {
+    "make": "Hyundai",
+    "model": "Elantra",
+    "year": 2021,
+    "last_covered": 2026
+  }
+}

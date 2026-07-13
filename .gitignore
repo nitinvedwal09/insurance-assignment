@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+
+# generated/runtime data — the RAG source docs (data/rag/*.md), images, and
+# vin_registry.json are tracked so a fresh clone has the same data;
+# rag_index/ is rebuilt automatically from data/rag/*.md on first startup
+data/app.db
+data/rag_index/
+last_response.json
+uvicorn.log
+
+.env
+venv/
