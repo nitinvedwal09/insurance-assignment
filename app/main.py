@@ -89,10 +89,7 @@ async def query(query: Optional[str] = Form(None), image: Optional[UploadFile] =
         suffix = f".{pil_image.format.lower()}" if pil_image.format else ".jpg"
         image_path = storage.save_image(transaction_id, image_bytes, suffix)
 
-    # An agent model decides, per request, which of query_knowledge_base /
-    # analyze_image / check_warranty_status / escalate_to_human it actually needs
-    # (see agent.py). Along the way it also asks the bandit which OCR engine and RAG
-    # top-K to use, so those choices vary request-to-request as the bandit learns.
+
     session = AgentSession(
         transaction_id=transaction_id,
         query=query_text,
@@ -104,9 +101,7 @@ async def query(query: Optional[str] = Form(None), image: Optional[UploadFile] =
     )
     await session.run()
 
-    # A resolved policy fact (or an escalation) is as good a grounding source as a
-    # confident RAG hit for the query-only "answer vs. ask for a photo" decision --
-    # only fall back to the "not enough info" framing when nothing was resolved at all.
+
     rag_hits = session.rag_hits
     has_other_grounding = bool(session.policy_payload or session.escalation_payload)
     rag_grounded = has_other_grounding or (

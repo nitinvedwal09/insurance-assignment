@@ -5,10 +5,6 @@ import httpx
 
 from app import config
 
-# Small local models sometimes ignore the "Detected damage: X" context line and
-# fall back to a generic "no visible damage" phrase from their training data.
-# Catch that specific contradiction deterministically rather than trusting the
-# model to always follow the prompt's instruction not to do this.
 _NO_DAMAGE_PHRASE = re.compile(r"no[\s_-]*(?:visible\s+)?(?:physical\s+)?damage", re.IGNORECASE)
 
 
@@ -56,7 +52,6 @@ def _build_prompt(
     context = "\n".join(context_lines)
 
     if not query:
-        # image-only scenario: no question was asked, just describe what was found
         return context or "No damage or text was detected in the photo."
     return f"{context}\n\nQuestion: {query}" if context else query
 

@@ -5,14 +5,9 @@ OLLAMA_URL = "http://localhost:11434/api/chat"
 
 AGENT_MODEL = "llama3.2:1b"
 TEMPERATURE = 0.3
-# Same model family, two sizes -- an apples-to-apples cost/latency/quality tradeoff
-# for the bandit to learn (bigger = slower + likely better answers).
+
 LLM_CHOICES = ["qwen2.5:0.5b", "qwen2.5:1.5b"]
 
-# --- Agent loop ---
-# Hard cap on tool-call round-trips per request, so a confused small model can't loop
-# forever. If this is hit without the model producing a final answer, the request is
-# force-escalated instead of silently returning nothing.
 MAX_AGENT_STEPS = 4
 
 AGENT_SYSTEM_PROMPT = (
@@ -38,51 +33,22 @@ AGENT_SYSTEM_PROMPT = (
 )
 
 # --- RAG ---
-# Bandit-selected per request (see bandit.py); more chunks costs more LLM context/time
-# but can raise answer quality, which is exactly the tradeoff the RL loop should learn.
+
 RAG_TOPK_CHOICES = [2, 5]
-# Cosine similarity (1 - distance) below which the best retrieved chunk is treated as
-# "not actually relevant". Used only in the query-only scenario to decide whether to
-# ground the answer in the knowledge base or ask the user to upload a photo instead.
+
 RAG_CONFIDENCE_THRESHOLD = 0.45
 
 # --- OCR ---
-# Bandit-selected per request (see bandit.py) -- each engine has a different
-# cost/latency/accuracy profile.
 OCR_ENGINES = ["easyocr", "paddleocr", "rapidocr"]
 
 # --- Damage detection ---
-# Bandit-selected per request (see bandit.py). "hf" is the whole-image HF classifier
-# (beingamit99/car_damage_detection); "yolo" is a locally fine-tuned YOLO detector
-# (app/trained.pt) that localizes damage rather than just classifying the whole photo.
-# Both sit behind the same OpenCV edge-density no-damage prefilter.
 DAMAGE_BACKENDS = ["hf", "yolo"]
-YOLO_WEIGHTS_PATH = "trained.pt"  # resolved relative to app/ in damage_classifier.py
+YOLO_WEIGHTS_PATH = "trained.pt"  
 YOLO_CONFIDENCE_THRESHOLD = 0.5
 
-# --- VIN plate handling ---
-# Uploaded photos are expected to be a damage photo with a VIN-plate/door-jamb-sticker
-# inset composited into a corner (see files/generate_vin_plates.py). When True, that
-# region is masked out before damage classification (so its hard edges don't skew the
-# edge-density no-damage prefilter or the classifiers) and cropped out on its own for
-# OCR (smaller, more focused read). Set to False to fall back to feeding both models
-# the untouched full image, e.g. if photos stop including a plate inset.
+
 CROP_VIN_PLATE_REGION = False
-# (x0, y0, x1, y1) as fractions of image width/height -- top-left corner by default.
 VIN_PLATE_REGION_FRACTION = (0.0, 0.0, 0.35, 0.35)
-
-
-# --- Prompts ---
-# main.py picks one of these three scenarios based on what the user actually submitted:
-#   FULL         - both a photo and a question were given
-#   IMAGE_ONLY   - only a photo was given, no question
-#   QUERY_ONLY   - only a question was given, no photo (grounded or ungrounded variant
-#                  depending on whether the RAG match clears RAG_CONFIDENCE_THRESHOLD)
-
-# Appended to every prompt below: small local models otherwise tend to echo the raw
-# context block (field labels, bullet points, knowledge-base headings) back verbatim
-# instead of writing an actual answer -- this is the single biggest quality lever for
-# that failure mode, so keep it forceful and repeat it in every variant.
 _NO_ECHO = (
     " Write your answer as plain, flowing sentences addressed directly to the vehicle "
     "owner. Never copy the context lines, field labels (like 'Detected damage:' or "

@@ -163,17 +163,14 @@ class AgentSession:
                 await self._force_tool_call(fn["name"], fn.get("arguments") or {}, messages)
 
         if not settled:
-            # Loop exhausted MAX_AGENT_STEPS without the model settling on an answer --
-            # don't let a confused small-model loop silently drop the case.
+        
             await self._force_tool_call(
                 "escalate_to_human",
                 {"trigger": "reasoning loop limit reached", "recommended_action": "Manual review needed."},
                 messages,
             )
         elif self._pil_image is not None and not self._image_analyzed:
-            # A small tool-calling model can settle on an answer without ever looking at
-            # an attached photo, silently ignoring evidence that was right there --
-            # force one analyze_image call and give it one more turn to react to it.
+         
             await self._force_tool_call("analyze_image", {}, messages)
             message = await self._call_model(messages)
             if message.get("thinking"):
@@ -185,12 +182,6 @@ class AgentSession:
                     fn = call["function"]
                     await self._force_tool_call(fn["name"], fn.get("arguments") or {}, messages)
 
-        # The tool-calling model doesn't reliably call query_knowledge_base on its own --
-        # with a query present it often burns its MAX_AGENT_STEPS budget on analyze_image
-        # and settles before ever searching the KB, and with no query there's nothing for
-        # the tool's argument to come from in the first place. Either way the final answer
-        # ends up ungrounded and the answer LLM improvises instead of using repair-procedure
-        # text, so force one lookup whenever nothing was retrieved yet.
         if not self.rag_hits:
             if self.query and self.damage_category:
                 fallback_query = f"{self.query} ({self.damage_category} damage)"
@@ -266,10 +257,6 @@ class AgentSession:
             damage_image = self._pil_image
             ocr_image = self._pil_image
 
-        # Damage classification runs first (independent of OCR engine choice) so its
-        # category can serve as the bandit context for the OCR-engine decision below.
-        # Its own bandit context is the query's presence/absence -- the damage category
-        # isn't known yet at this point, so it can't serve as its own context.
         damage_backend_choice = bandit.choose(
             "damage", "has_query" if self.query else "no_query", config.DAMAGE_BACKENDS
         )
@@ -302,12 +289,6 @@ class AgentSession:
 
         self._image_analyzed = True
 
-        # escalation_rules.md marks Glass Shatter as a mandatory, always-escalate safety
-        # trigger (visibility/driving risk) -- too important to leave to the small
-        # agent model remembering to call escalate_to_human on its own. Checked against
-        # the raw model label (from whichever backend the bandit picked) since "broken"
-        # (the collapsed category) also covers flat tires and broken lamps, which aren't
-        # safety-critical the same way.
         if damage_result.raw_label in GLASS_SHATTER_RAW_LABELS and not self.escalated:
             self._tool_escalate_to_human(
                 "Glass Shatter (safety-relevant damage)",
@@ -332,10 +313,7 @@ class AgentSession:
         return self.policy_payload
 
     def _tool_escalate_to_human(self, trigger: str, recommended_action: str) -> dict:
-        # Prefer the policy lookup's VIN (confirmed against the registry) but fall back
-        # to the raw OCR read -- escalation can fire (e.g. Glass Shatter) before/without
-        # check_warranty_status ever being called, so policy_payload alone would report
-        # "unreadable" even when OCR did extract a VIN.
+
         vin = (self.policy_payload or {}).get("vin") or (self.ocr_payload or {}).get("vin") or "unreadable"
         summary = {
             "transaction_id": self.transaction_id,

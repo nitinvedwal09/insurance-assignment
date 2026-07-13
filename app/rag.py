@@ -124,10 +124,7 @@ class RagIndex:
         current_hashes = {name: _file_hash(text) for name, text in file_texts.items()}
 
         existing = self._collection.get()
-        # Keyed by source file, not just its name, so an edit to an already-indexed
-        # file's content (not just adding/removing a file) triggers a rebuild too.
-        # .get(...) tolerates older index versions that predate file_hash tracking --
-        # their entries simply won't match and the index gets rebuilt below.
+   
         existing_hashes = {m["source"]: m.get("file_hash") for m in existing["metadatas"]}
         if existing["ids"] and existing_hashes == current_hashes:
             return  # index already matches what's on disk

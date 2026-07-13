@@ -18,12 +18,6 @@ class Choice:
 
 
 class ContextualBandit:
-    """Epsilon-greedy contextual bandit, one independent arm set per (decision_point,
-    context) pair. With probability EPSILON pick a random action (explore); otherwise
-    pick whichever action has the highest average reward seen so far (exploit). Arms
-    start unproven (average reward 0) so they still surface via exploration until they
-    build up real data.
-    """
 
     def choose(self, decision_point: str, context: str, actions: list[str]) -> Choice:
         key_prefix = context_key(decision_point, context)
