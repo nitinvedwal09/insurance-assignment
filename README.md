@@ -25,17 +25,7 @@ venv\Scripts\activate      # Windows
 pip install -r requirements.txt
 ```
 
-## Configure
 
-Copy `.env.example` to `.env`:
-
-```bash
-copy .env.example .env      # Windows
-# cp .env.example .env      # macOS/Linux
-```
-
-`HF_TOKEN` only needs to be set if a Hugging Face model used by
-`damage_classifier.py` / `rag.py` is gated and requires authentication.
 
 ## Run
 

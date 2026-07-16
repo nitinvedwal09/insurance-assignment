@@ -22,8 +22,7 @@ from app.ocr_pipeline import OCRPipeline
 from app.rag import RagIndex
 from app.vin_lookup import VinRegistry
 from dotenv import load_dotenv
-load_dotenv()  # Load environment variables from .env file, if present
-
+load_dotenv()  
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).parent.parent
@@ -184,18 +183,10 @@ async def submit_feedback(payload: FeedbackPayload):
     await asyncio.to_thread(storage.save_feedback, payload.transaction_id, payload.score)
 
     latencies_ms = json.loads(transaction["latencies_ms"] or "{}")
-    bandit_choices_raw = json.loads(transaction["bandit_choices"] or "[]")
-    # Only the latency actually attributable to a bandit-controlled step counts against
-    # it -- agent_ms (fixed tool-selection model) would otherwise swamp the signal from
-    # the damage backend / OCR engine / RAG top-K / answer LLM choices the bandit is
-    # actually learning between. damage_ms is included now that the damage backend
-    # (hf vs yolo) is itself a bandit-controlled arm.
+
     configured_seconds = sum(latencies_ms.get(k, 0) for k in ("damage_ms", "ocr_ms", "rag_ms", "llm_ms")) / 1000
 
-    # Reward blends user feedback with execution latency: a helpful answer scores +80
-    # before the latency penalty, an unhelpful one scores 0 before it. +80 (vs. +10)
-    # keeps the feedback signal dominant over latency, which otherwise runs into the
-    # single-digit seconds for the slower arms (e.g. the 1.5b LLM, PaddleOCR).
+    bandit_choices_raw = json.loads(transaction["bandit_choices"] or "[]")
     reward = (payload.score * 80) - configured_seconds
     choices = [Choice(**c) for c in bandit_choices_raw]
     bandit.record_reward(choices, reward)

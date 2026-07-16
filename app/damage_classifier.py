@@ -1,15 +1,19 @@
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 import cv2
 import numpy as np
+from dotenv import load_dotenv
 from PIL import Image
 from transformers import pipeline
 from ultralytics import YOLO
 
 from app import config
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +39,7 @@ GLASS_SHATTER_RAW_LABELS = {"Glass Shatter", "shattered_glass"}
 
 NO_DAMAGE_EDGE_DENSITY = 0.02
 MIN_MODEL_CONFIDENCE = 0.35
+MIN_HF_MODEL_CONFIDENCE = 0.90
 
 
 @dataclass
@@ -68,7 +73,7 @@ class DamageClassifier:
         self._yolo_load_error: Optional[Exception] = None
 
         try:
-            self._hf_pipe = pipeline("image-classification", model=hf_model_id)
+            self._hf_pipe = pipeline("image-classification", model=hf_model_id, token=os.getenv("HF_TOKEN") or None)
         except Exception as exc:
             logger.warning("HF damage classifier failed to initialize: %s", exc)
 
@@ -93,7 +98,8 @@ class DamageClassifier:
             )
 
         pred = self._classify_yolo(image) if backend == "yolo" else self._classify_hf(image)
-        if pred.confidence < MIN_MODEL_CONFIDENCE:
+        min_confidence = MIN_HF_MODEL_CONFIDENCE if backend == "hf" else MIN_MODEL_CONFIDENCE
+        if pred.confidence < min_confidence:
             pred = ModelPrediction(category="no_damage", confidence=pred.confidence, raw_label=pred.raw_label)
 
         return DamageResult(

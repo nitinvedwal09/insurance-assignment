@@ -90,14 +90,6 @@ TOOL_SCHEMAS = [
 
 
 class AgentSession:
-    """Drives the ReAct-style tool-selection loop for one /query request.
-
-    AGENT_MODEL (a local tool-calling model) decides which tool to call and in what
-    order; this class executes whatever it asks for. The RAG top-K, OCR engine, and
-    final-answer LLM used along the way are chosen by the contextual bandit (see
-    bandit.py) rather than being fixed, and every choice made is recorded in
-    self.bandit_choices so main.py can apply the /feedback reward to the right arms.
-    """
 
     def __init__(
         self,
@@ -223,7 +215,7 @@ class AgentSession:
         if name == "analyze_image":
             return await self._tool_analyze_image()
         if name == "check_warranty_status":
-            return self._tool_check_warranty_status(args.get("serial_number"))
+            return await self._tool_check_warranty_status(args.get("serial_number"))
         if name == "escalate_to_human":
             return self._tool_escalate_to_human(args.get("trigger", ""), args.get("recommended_action", ""))
         return {"error": f"Unknown tool '{name}'"}
@@ -299,9 +291,17 @@ class AgentSession:
 
         return {"damage": self.damage_payload, "label": self.ocr_payload, "ocr_engine_used": ocr_choice.action}
 
-    def _tool_check_warranty_status(self, serial_number: Optional[str]) -> dict:
+    async def _tool_check_warranty_status(self, serial_number: Optional[str]) -> dict:
         if self._vin_registry is None:
             return {"error": "VIN registry lookup is unavailable right now."}
+
+        customer_typed = bool(serial_number) and serial_number in (self.query or "")
+        if self._pil_image is not None and not self._image_analyzed and not customer_typed:
+            # A serial/VIN offered here can't be trusted yet -- the model hasn't
+            # read one off the photo, so anything it passed is a guess. Extract
+            # the real one first and prefer that over the model's argument.
+            await self._tool_analyze_image()
+            serial_number = None
 
         vin = serial_number or (self.ocr_payload or {}).get("vin")
         if not vin:

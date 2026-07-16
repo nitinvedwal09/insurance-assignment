@@ -44,7 +44,7 @@ OCR_ENGINES = ["easyocr", "paddleocr", "rapidocr"]
 # --- Damage detection ---
 DAMAGE_BACKENDS = ["hf", "yolo"]
 YOLO_WEIGHTS_PATH = "trained.pt"  
-YOLO_CONFIDENCE_THRESHOLD = 0.5
+YOLO_CONFIDENCE_THRESHOLD = 0.75
 
 
 CROP_VIN_PLATE_REGION = False
