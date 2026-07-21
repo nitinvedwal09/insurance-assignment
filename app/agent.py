@@ -137,7 +137,13 @@ class AgentSession:
         ]
         if self._pil_image is None:
             messages.append({"role": "system", "content": "Note: no photo was attached to this request."})
+        else:
+            # Ground the session in the real classification before the model can
+            # act -- otherwise a weak model can call query_knowledge_base on a
+            # guessed/hallucinated damage type before analyze_image ever runs.
+            await self._force_tool_call("analyze_image", {}, messages)
 
+        reasoning_start = time.perf_counter()
         settled = False
         for _ in range(config.MAX_AGENT_STEPS):
             message = await self._call_model(messages)
@@ -153,36 +159,17 @@ class AgentSession:
             for call in tool_calls:
                 fn = call["function"]
                 await self._force_tool_call(fn["name"], fn.get("arguments") or {}, messages)
+        self.latencies_ms["reasoning_ms"] = (time.perf_counter() - reasoning_start) * 1000
 
         if not settled:
-        
             await self._force_tool_call(
                 "escalate_to_human",
                 {"trigger": "reasoning loop limit reached", "recommended_action": "Manual review needed."},
                 messages,
             )
-        elif self._pil_image is not None and not self._image_analyzed:
-         
-            await self._force_tool_call("analyze_image", {}, messages)
-            message = await self._call_model(messages)
-            if message.get("thinking"):
-                self.steps.append({"type": "thought", "text": message["thinking"]})
-            tool_calls = message.get("tool_calls") or []
-            if tool_calls:
-                messages.append(message)
-                for call in tool_calls:
-                    fn = call["function"]
-                    await self._force_tool_call(fn["name"], fn.get("arguments") or {}, messages)
 
         if not self.rag_hits:
-            if self.query and self.damage_category:
-                fallback_query = f"{self.query} ({self.damage_category} damage)"
-            elif self.query:
-                fallback_query = self.query
-            elif self.damage_category:
-                fallback_query = f"repair steps for {self.damage_category} damage"
-            else:
-                fallback_query = None
+            fallback_query = self._grounded_query(self.query)
             if fallback_query:
                 await self._force_tool_call("query_knowledge_base", {"query": fallback_query}, messages)
 
@@ -220,9 +207,24 @@ class AgentSession:
             return self._tool_escalate_to_human(args.get("trigger", ""), args.get("recommended_action", ""))
         return {"error": f"Unknown tool '{name}'"}
 
+    def _grounded_query(self, query: str) -> str:
+        # analyze_image (forced up front, see run()) is the source of truth for
+        # damage type -- don't let a hallucinated query send RAG off-topic
+        # (e.g. asking about windshield cracks for a photo classified as a scratch).
+        if not self.damage_category or self.damage_category == "no_damage":
+            return query
+        category_terms = self.damage_category.lower().replace("_", " ")
+        if not query:
+            return f"repair steps for {self.damage_category} damage"
+        if category_terms in query.lower():
+            return query
+        return f"{query} ({self.damage_category} damage)"
+
     async def _tool_query_knowledge_base(self, query: str) -> dict:
         if self._rag_index is None:
             return {"error": "RAG knowledge base is unavailable right now."}
+
+        query = self._grounded_query(query)
 
         top_k_choice = bandit.choose("topk", self.context(), [str(k) for k in config.RAG_TOPK_CHOICES])
         self.bandit_choices.append(top_k_choice)

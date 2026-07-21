@@ -39,7 +39,7 @@ RAG_TOPK_CHOICES = [2, 5]
 RAG_CONFIDENCE_THRESHOLD = 0.45
 
 # --- OCR ---
-OCR_ENGINES = ["easyocr", "paddleocr", "rapidocr"]
+OCR_ENGINES = [ "paddleocr", "rapidocr"]
 
 # --- Damage detection ---
 DAMAGE_BACKENDS = ["hf", "yolo"]

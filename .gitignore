@@ -8,6 +8,8 @@ data/app.db
 data/rag_index/
 last_response.json
 uvicorn.log
-
-.env
+\venv
+/venv
 venv/
+venv
+
