@@ -124,6 +124,9 @@ class AgentSession:
     def context(self) -> str:
         return self.damage_category or "none"
 
+    def _best_rag_score(self) -> float:
+        return max((hit["score"] for hit in self.rag_hits), default=0.0)
+
     async def run(self) -> None:
         agent_start = time.perf_counter()
         messages = [
@@ -138,9 +141,7 @@ class AgentSession:
         if self._pil_image is None:
             messages.append({"role": "system", "content": "Note: no photo was attached to this request."})
         else:
-            # Ground the session in the real classification before the model can
-            # act -- otherwise a weak model can call query_knowledge_base on a
-            # guessed/hallucinated damage type before analyze_image ever runs.
+
             await self._force_tool_call("analyze_image", {}, messages)
 
         reasoning_start = time.perf_counter()
@@ -168,10 +169,16 @@ class AgentSession:
                 messages,
             )
 
-        if not self.rag_hits:
+        if self._best_rag_score() < config.RAG_CONFIDENCE_THRESHOLD:
+            # A weak/hallucinated tool-call query can leave rag_hits non-empty but
+            # low-scoring, which would otherwise skip this fallback and send the
+            # customer an "ungrounded" answer for a question the KB actually covers.
             fallback_query = self._grounded_query(self.query)
             if fallback_query:
+                previous_hits, previous_score = self.rag_hits, self._best_rag_score()
                 await self._force_tool_call("query_knowledge_base", {"query": fallback_query}, messages)
+                if previous_score > self._best_rag_score():
+                    self.rag_hits = previous_hits
 
         self.latencies_ms["agent_ms"] = (time.perf_counter() - agent_start) * 1000
 
@@ -208,9 +215,7 @@ class AgentSession:
         return {"error": f"Unknown tool '{name}'"}
 
     def _grounded_query(self, query: str) -> str:
-        # analyze_image (forced up front, see run()) is the source of truth for
-        # damage type -- don't let a hallucinated query send RAG off-topic
-        # (e.g. asking about windshield cracks for a photo classified as a scratch).
+
         if not self.damage_category or self.damage_category == "no_damage":
             return query
         category_terms = self.damage_category.lower().replace("_", " ")

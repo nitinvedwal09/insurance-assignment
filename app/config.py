@@ -6,7 +6,8 @@ OLLAMA_URL = "http://localhost:11434/api/chat"
 AGENT_MODEL = "llama3.2:1b"
 TEMPERATURE = 0.3
 
-LLM_CHOICES = ["qwen2.5:0.5b", "qwen2.5:1.5b"]
+# LLM_CHOICES = ["qwen2.5:0.5b", "qwen2.5:1.5b","gemma2:2b"]
+LLM_CHOICES = ["gemma2:2b"]
 
 MAX_AGENT_STEPS = 4
 

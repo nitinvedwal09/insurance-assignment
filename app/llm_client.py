@@ -6,6 +6,11 @@ import httpx
 from app import config
 
 _NO_DAMAGE_PHRASE = re.compile(r"no[\s_-]*(?:visible\s+)?(?:physical\s+)?damage", re.IGNORECASE)
+_DAMAGE_MENTION_RE = re.compile(
+    r"\b(scratch(?:ed)?|dent(?:ed)?|crack(?:ed)?|shatter(?:ed)?|broken|flat tire|glass damage)\b",
+    re.IGNORECASE,
+)
+_ESCALATION_MENTION_RE = re.compile(r"escalat|specialist|human adjuster", re.IGNORECASE)
 
 
 def _format_policy(policy_info: dict) -> str:
@@ -57,16 +62,36 @@ def _build_prompt(
 
 
 def _contradicts_damage_category(answer: str, damage_category: str) -> bool:
-    return damage_category != "no_damage" and bool(_NO_DAMAGE_PHRASE.search(answer))
+    if damage_category != "no_damage":
+        return bool(_NO_DAMAGE_PHRASE.search(answer))
+    # The reverse failure: classifier says nothing's wrong, but the answer
+    # describes real damage anyway (e.g. picked up from the customer's own
+    # wording or off-topic RAG hits pulled in despite no grounding rewrite).
+    return bool(_DAMAGE_MENTION_RE.search(answer))
+
+
+def _omits_escalation(answer: str, escalation_info: Optional[dict]) -> bool:
+    # An active escalation is safety-relevant -- never let the model silently
+    # drop it from a customer-facing answer just because other context (a
+    # damage category, RAG excerpts) dominated the generation.
+    return bool(escalation_info) and not _ESCALATION_MENTION_RE.search(answer)
+
+
+def _category_phrase(damage_category: str) -> str:
+    if damage_category == "no_damage":
+        return "no damage on your vehicle"
+    return f"{damage_category.replace('_', ' ')} damage on your vehicle"
 
 
 def _fallback_answer(
-    damage_category: str,
+    damage_category: Optional[str],
     label_info: Optional[dict],
     policy_info: Optional[dict],
     escalation_info: Optional[dict],
 ) -> str:
-    sentences = [f"We detected {damage_category.replace('_', ' ')} damage on your vehicle."]
+    sentences = []
+    if damage_category:
+        sentences.append(f"We detected {_category_phrase(damage_category)}.")
     if label_info and _format_label(label_info):
         sentences.append(f"We read {_format_label(label_info)} from the photo.")
     if policy_info:
@@ -117,6 +142,8 @@ async def generate_answer(
         response.raise_for_status()
         answer = response.json().get("message", {}).get("content", "")
 
+    if _omits_escalation(answer, escalation_info):
+        return _fallback_answer(damage_category, label_info, policy_info, escalation_info)
     if damage_category and _contradicts_damage_category(answer, damage_category):
         return _fallback_answer(damage_category, label_info, policy_info, escalation_info)
     return answer
